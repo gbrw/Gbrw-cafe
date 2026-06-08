@@ -701,16 +701,12 @@ fun ProductCard(product: Product, onAddToCart: (Product, ProductSize) -> Unit) {
 fun LeshLogo(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
-            .size(40.dp),
+            .size(40.dp)
+            .clip(CircleShape),
         contentAlignment = Alignment.Center
     ) {
         Image(
-            painter = painterResource(id = R.drawable.ic_launcher_background),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize()
-        )
-        Image(
-            painter = painterResource(id = R.drawable.ic_launcher_foreground),
+            painter = painterResource(id = R.drawable.img_lesh_logo),
             contentDescription = "Lesh Cafe Logo",
             modifier = Modifier.fillMaxSize()
         )
@@ -743,11 +739,39 @@ fun CategoryHeader(title: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
+fun FloatingCoffeeBean(
+    modifier: Modifier = Modifier,
+    alpha: Float = 0.3f,
+    angle: Float = 0f
+) {
+    Canvas(modifier = modifier.graphicsLayer(rotationZ = angle)) {
+        val w = size.width
+        val h = size.height
+        // Draw the coffee bean background oval
+        drawOval(
+            color = Color(0xFF3B402B).copy(alpha = alpha), // beautiful dark olive-brown bean shade
+            topLeft = Offset(0f, 0f),
+            size = Size(w, h)
+        )
+        // Draw the middle bean crease
+        val path = androidx.compose.ui.graphics.Path().apply {
+            moveTo(w * 0.15f, h * 0.5f)
+            quadraticTo(w * 0.5f, h * 0.3f, w * 0.85f, h * 0.5f)
+        }
+        drawPath(
+            path = path,
+            color = Color(0xFF1F2216).copy(alpha = alpha),
+            style = Stroke(width = w * 0.1f)
+        )
+    }
+}
+
+@Composable
 fun SplashScreen(navController: NavController, modifier: Modifier = Modifier) {
     var startAnimation by remember { mutableStateOf(false) }
     
     val scale by animateFloatAsState(
-        targetValue = if (startAnimation) 1.1f else 0.8f,
+        targetValue = if (startAnimation) 1.05f else 0.85f,
         animationSpec = tween(durationMillis = 1200),
         label = "scale"
     )
@@ -769,7 +793,7 @@ fun SplashScreen(navController: NavController, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(Color(0xFF5A6044)) // Absolute matching organic olive-green background
             .clickable { 
                 navController.navigate("menu") {
                     popUpTo("splash") { inclusive = true }
@@ -777,66 +801,18 @@ fun SplashScreen(navController: NavController, modifier: Modifier = Modifier) {
             },
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
+        // High-quality full-screen splash image background transitioning smoothly via fade-in
+        Image(
+            painter = painterResource(id = R.drawable.img_splash_bg),
+            contentDescription = "Lesh Cafe Splash Background",
             modifier = Modifier
-                .padding(24.dp)
+                .fillMaxSize()
                 .graphicsLayer(
                     scaleX = scale,
                     scaleY = scale,
                     alpha = alpha
-                )
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(180.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.ic_launcher_background),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize()
-                )
-                Image(
-                    painter = painterResource(id = R.drawable.ic_launcher_foreground),
-                    contentDescription = "Lesh Cafe Logo",
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(28.dp))
-            
-            Text(
-                text = "ليش كافيه",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            
-            Text(
-                text = "Lesh Cafe",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Text(
-                text = "ليش لا يكون يومك مميز",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-            )
-            
-            Spacer(modifier = Modifier.height(32.dp))
-            
-            CircularProgressIndicator(
-                color = MaterialTheme.colorScheme.primary,
-                strokeWidth = 3.dp,
-                modifier = Modifier.size(24.dp)
-            )
-        }
+                ),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+        )
     }
 }

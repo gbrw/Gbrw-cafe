@@ -5,9 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
-import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
-import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.lazy.staggeredgrid.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
@@ -29,6 +27,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.ui.draw.clip
 import coil.compose.AsyncImage
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
 import com.example.ui.theme.MyApplicationTheme
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyColumn
@@ -40,6 +40,17 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.data.AppDatabase
 import com.example.data.ProductRepository
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.clickable
 
 data class ProductSize(
     val name: String,
@@ -57,20 +68,85 @@ data class Product(
 data class CartItem(
     val id: String = java.util.UUID.randomUUID().toString(),
     val product: Product,
-    val size: ProductSize
+    val size: ProductSize,
+    val quantity: Int = 1
 )
 
 val sampleProducts = listOf(
-    Product("1", "اسبريسو", "https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?w=500&q=80", listOf(ProductSize("سنجل", 2000), ProductSize("دبل", 3000)), "قهوة حارة"),
-    Product("2", "كابتشينو", "https://images.unsplash.com/photo-1572442388796-11668a67e53d?w=500&q=80", listOf(ProductSize("وسط", 3500), ProductSize("كبير", 4500)), "قهوة حارة"),
-    Product("3", "لاتيه", "https://images.unsplash.com/photo-1561882468-9110e03e0f78?w=500&q=80", listOf(ProductSize("وسط", 3500), ProductSize("كبير", 4500)), "قهوة حارة"),
-    Product("4", "امريكانو", "https://images.unsplash.com/photo-1551030173-122aabc4489c?w=500&q=80", listOf(ProductSize("وسط", 2500), ProductSize("كبير", 3500)), "قهوة حارة"),
-    Product("5", "موكا", "https://images.unsplash.com/photo-1578314675249-a6910f80cc4e?w=500&q=80", listOf(ProductSize("وسط", 4000), ProductSize("كبير", 5000)), "قهوة حارة"),
-    Product("6", "آيس لاتيه", "https://images.unsplash.com/photo-1461023058943-0708e5604d06?w=500&q=80", listOf(ProductSize("وسط", 4000), ProductSize("كبير", 5000)), "قهوة باردة"),
-    Product("7", "آيس امريكانو", "https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=500&q=80", listOf(ProductSize("وسط", 3000), ProductSize("كبير", 4000)), "قهوة باردة"),
-    Product("8", "ماتشا لاتيه", "https://images.unsplash.com/photo-1536514498073-50e69d39c6cf?w=500&q=80", listOf(ProductSize("وسط", 4500), ProductSize("كبير", 5500)), "شاي"),
-    Product("9", "كرواسون", "https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=500&q=80", listOf(ProductSize("عادي", 3000)), "معجنات"),
-    Product("10", "مافن توت الأرزق", "https://images.unsplash.com/photo-1607958996333-41aef7caefaa?w=500&q=80", listOf(ProductSize("عادي", 2500)), "معجنات")
+    // 1. العصائر الطبيعية
+    Product("j1", "عصير خوخ", "", listOf(ProductSize("عادي", 3000)), "العصائر الطبيعية"),
+    Product("j3", "عصير برتقال", "", listOf(ProductSize("عادي", 3000)), "العصائر الطبيعية"),
+    Product("j2", "عصير بطيخ", "", listOf(ProductSize("عادي", 3000)), "العصائر الطبيعية"),
+    Product("j4", "مكس ليمون نعناع", "", listOf(ProductSize("عادي", 3000)), "العصائر الطبيعية"),
+    Product("j5", "عصير مانجا", "", listOf(ProductSize("عادي", 4000)), "العصائر الطبيعية"),
+    Product("j6", "مكس فراوله موز", "", listOf(ProductSize("عادي", 4000)), "العصائر الطبيعية"),
+    Product("j7", "مكس فراوله مانجا", "", listOf(ProductSize("عادي", 5000)), "العصائر الطبيعية"),
+
+    // 2. ميلك شيك
+    Product("j8", "ميلك شيك لوتس", "", listOf(ProductSize("عادي", 5000)), "ميلك شيك"),
+    Product("j9", "ميلك شيك اوريو", "", listOf(ProductSize("عادي", 4500)), "ميلك شيك"),
+    Product("j10", "ميلك شيك بستاشيو", "", listOf(ProductSize("عادي", 4500)), "ميلك شيك"),
+
+    // 3. موهيتو
+    Product("m1", "موهيتو توت", "", listOf(ProductSize("عادي", 2500)), "موهيتو"),
+    Product("m2", "موهيتو مانجا", "", listOf(ProductSize("عادي", 2500)), "موهيتو"),
+    Product("m3", "موهيتو بلوبيري", "", listOf(ProductSize("عادي", 2500)), "موهيتو"),
+    Product("m4", "موهيتو فراوله", "", listOf(ProductSize("عادي", 2500)), "موهيتو"),
+    Product("m5", "موهيتو خوخ", "", listOf(ProductSize("عادي", 2500)), "موهيتو"),
+    Product("m6", "موهيتو موز", "", listOf(ProductSize("عادي", 2500)), "موهيتو"),
+
+    // 4. المشروبات الباردة
+    Product("c1", "ماتشا كلاسك", "", listOf(ProductSize("عادي", 4000)), "المشروبات الباردة"),
+    Product("c2_1", "ماتشا فراوله", "", listOf(ProductSize("عادي", 4500)), "المشروبات الباردة"),
+    Product("c2_2", "ماتشا جوز الهند", "", listOf(ProductSize("عادي", 4500)), "المشروبات الباردة"),
+    Product("c2_3", "ماتشا مانجا", "", listOf(ProductSize("عادي", 4500)), "المشروبات الباردة"),
+    Product("c3", "كركديه ليش", "", listOf(ProductSize("عادي", 3500)), "المشروبات الباردة"),
+    Product("c4", "انرجي ليش", "", listOf(ProductSize("عادي", 4000)), "المشروبات الباردة"),
+    Product("c5", "ايكودا", "", listOf(ProductSize("عادي", 3000)), "المشروبات الباردة"),
+    Product("c6", "كولد برو ليش", "", listOf(ProductSize("عادي", 3500)), "المشروبات الباردة"),
+    Product("c7", "كولد برو انرجي", "", listOf(ProductSize("عادي", 4000)), "المشروبات الباردة"),
+
+    // 5. ايس تي
+    Product("i1", "ايس تي خوخ", "", listOf(ProductSize("عادي", 2500)), "ايس تي"),
+    Product("i2", "ايس تي أناناس", "", listOf(ProductSize("عادي", 2500)), "ايس تي"),
+    Product("i4", "ايس تي ليمون", "", listOf(ProductSize("عادي", 2500)), "ايس تي"),
+    Product("i3", "ايس تي باشن فروت", "", listOf(ProductSize("عادي", 2500)), "ايس تي"),
+
+    // 6. ايس لاتيه
+    Product("i6", "ايس لاتيه فانيلا", "", listOf(ProductSize("عادي", 4000)), "ايس لاتيه"),
+    Product("i5", "ايس لاتيه بندق", "", listOf(ProductSize("عادي", 4000)), "ايس لاتيه"),
+    Product("i7", "ايس لاتيه كرميل", "", listOf(ProductSize("عادي", 4000)), "ايس لاتيه"),
+    Product("i8", "ايس لاتيه كلاسك", "", listOf(ProductSize("عادي", 3500)), "ايس لاتيه"),
+
+    // 7. ايس امريكانو
+    Product("i9", "ايس امريكانو برتقال", "", listOf(ProductSize("عادي", 4000)), "ايس امريكانو"),
+    Product("i10", "ايس امريكانو كلاسك", "", listOf(ProductSize("عادي", 4000)), "ايس امريكانو"),
+
+    // 8. المشروبات الساخنة
+    Product("h1", "اسبريسو سنكل", "", listOf(ProductSize("عادي", 2000)), "المشروبات الساخنة"),
+    Product("h2", "اسبريسو دبل", "", listOf(ProductSize("عادي", 3000)), "المشروبات الساخنة"),
+    Product("h3", "كبتشينو", "", listOf(ProductSize("عادي", 3000)), "المشروبات الساخنة"),
+    Product("h7", "هوت چوکلیت ارت", "", listOf(ProductSize("عادي", 3500)), "المشروبات الساخنة"),
+    Product("h6", "بينك لاتيه", "", listOf(ProductSize("عادي", 3000)), "المشروبات الساخنة"),
+    Product("h4", "لاتيه ساخن", "", listOf(ProductSize("عادي", 3000)), "المشروبات الساخنة"),
+    Product("h9", "كورتيادو", "", listOf(ProductSize("عادي", 4000)), "المشروبات الساخنة"),
+    Product("h5", "هوت چوکلیت", "", listOf(ProductSize("عادي", 3000)), "المشروبات الساخنة"),
+    Product("s1", "شاي عراقي", "", listOf(ProductSize("عادي", 500)), "المشروبات الساخنة"),
+    Product("s4", "شاي ليمون", "", listOf(ProductSize("عادي", 2000)), "المشروبات الساخنة"),
+    Product("s5", "شاي كرك", "", listOf(ProductSize("عادي", 2000)), "المشروبات الساخنة"),
+    Product("h8", "موكا", "", listOf(ProductSize("عادي", 3500)), "المشروبات الساخنة"),
+    Product("s3", "شاي رمان", "", listOf(ProductSize("عادي", 2000)), "المشروبات الساخنة"),
+    Product("s2", "شاي نعناع", "", listOf(ProductSize("عادي", 1000)), "المشروبات الساخنة"),
+    Product("h10", "امريكانو", "", listOf(ProductSize("عادي", 4000)), "المشروبات الساخنة"),
+
+    // 9. القهوة
+    Product("t1", "القهوة التركية", "", listOf(ProductSize("عادي", 2500)), "القهوة"),
+    Product("t2", "القهوة بندق", "", listOf(ProductSize("عادي", 2500)), "القهوة"),
+    Product("t3", "القهوة سادة", "", listOf(ProductSize("عادي", 2500)), "القهوة"),
+    Product("t4", "القهوة جكليتيه", "", listOf(ProductSize("عادي", 2500)), "القهوة"),
+    Product("t5", "القهوة فستق", "", listOf(ProductSize("عادي", 2500)), "القهوة"),
+    Product("t6", "القهوة وسط", "", listOf(ProductSize("عادي", 2500)), "القهوة"),
+    Product("t7", "القهوة مكسرات", "", listOf(ProductSize("عادي", 2500)), "القهوة")
 )
 
 class MainActivity : ComponentActivity() {
@@ -115,17 +191,55 @@ fun CoffeeMenuScreen(viewModel: ProductViewModel, navController: NavController) 
         }
     }
 
+    val categoriesOrder = remember {
+        listOf(
+            "العصائر الطبيعية",
+            "ميلك شيك",
+            "موهيتو",
+            "المشروبات الباردة",
+            "ايس تي",
+            "ايس لاتيه",
+            "ايس امريكانو",
+            "المشروبات الساخنة",
+            "القهوة"
+        )
+    }
+
+    val groupedProducts = remember(filteredProducts, categoriesOrder) {
+        val defined = categoriesOrder.map { cat ->
+            cat to filteredProducts.filter { it.category == cat }
+        }.filter { it.second.isNotEmpty() }
+        
+        val otherCats = filteredProducts.map { it.category }.distinct() - categoriesOrder.toSet()
+        val undefined = otherCats.map { cat ->
+            cat to filteredProducts.filter { it.category == cat }
+        }
+        
+        defined + undefined
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("قائمة القهوة", fontWeight = FontWeight.Bold) },
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        LeshLogo()
+                        Column {
+                            Text("ليش كافيه", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                            Text("Lesh Cafe", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 ),
                 actions = {
                     // Badge details for active listings
-                    val totalQuantity = cartItems.size
+                    val totalQuantity = cartItems.sumOf { it.quantity }
                     IconButton(onClick = { 
                         if (cartItems.isNotEmpty()) {
                             isCartExpanded = !isCartExpanded
@@ -166,27 +280,34 @@ fun CoffeeMenuScreen(viewModel: ProductViewModel, navController: NavController) 
                     onValueChange = { searchQuery = it },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                     placeholder = { Text("البحث عن منتج...") },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
                     shape = RoundedCornerShape(12.dp),
                     singleLine = true
                 )
 
-                // Categories
-                val dynamicCategories = remember(products) {
-                    listOf("الكل") + products.map { it.category }.distinct()
+                // Categories Filter Row
+                val dynamicCategories = remember(products, categoriesOrder) {
+                    val existing = products.map { it.category }.distinct()
+                    val sorted = categoriesOrder.filter { it in existing }
+                    val remaining = existing - categoriesOrder.toSet()
+                    listOf("الكل") + sorted + remaining
                 }
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    modifier = Modifier.padding(bottom = 12.dp)
                 ) {
                     items(dynamicCategories) { category ->
                         FilterChip(
                             selected = selectedCategory == category,
                             onClick = { selectedCategory = category },
-                            label = { Text(category) }
+                            label = { Text(category) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                            )
                         )
                     }
                 }
@@ -206,22 +327,35 @@ fun CoffeeMenuScreen(viewModel: ProductViewModel, navController: NavController) 
                     verticalItemSpacing = 16.dp,
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(filteredProducts, key = { it.id }) { product ->
-                        ProductCard(
-                            product = product,
-                            onAddToCart = { selectedProd, selectedSize ->
-                                cartItems.add(CartItem(product = selectedProd, size = selectedSize))
-                                // Auto-expand when a product is clicked/added so the user knows it's added!
-                                isCartExpanded = true
-                            }
-                        )
+                    groupedProducts.forEach { (categoryName, productList) ->
+                        item(span = StaggeredGridItemSpan.FullLine) {
+                            CategoryHeader(title = categoryName)
+                        }
+                        items(productList, key = { it.id }) { product ->
+                            ProductCard(
+                                product = product,
+                                onAddToCart = { selectedProd, selectedSize ->
+                                    val existingIndex = cartItems.indexOfFirst { 
+                                        it.product.id == selectedProd.id && it.size.name == selectedSize.name 
+                                    }
+                                    if (existingIndex != -1) {
+                                        val existingItem = cartItems[existingIndex]
+                                        cartItems[existingIndex] = existingItem.copy(quantity = existingItem.quantity + 1)
+                                    } else {
+                                        cartItems.add(CartItem(product = selectedProd, size = selectedSize, quantity = 1))
+                                    }
+                                    // Auto-expand when a product is clicked/added so the user knows it's added!
+                                    isCartExpanded = true
+                                }
+                            )
+                        }
                     }
                 }
             }
 
             // Collapsible/Expanding persistent bottom sheet overlay at the bottom
             if (cartItems.isNotEmpty()) {
-                val totalSum = cartItems.sumOf { it.size.price }
+                val totalSum = cartItems.sumOf { it.size.price * it.quantity }
                 val formattedTotal = java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(totalSum)
 
                 Card(
@@ -261,10 +395,10 @@ fun CoffeeMenuScreen(viewModel: ProductViewModel, navController: NavController) 
                                     imageVector = Icons.Default.ShoppingCart,
                                     contentDescription = "السلة",
                                     tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
+                               )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "تفاصيل السلة/الفاتورة (${cartItems.size})",
+                                    text = "تفاصيل السلة/الفاتورة (${cartItems.sumOf { it.quantity }})",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -317,18 +451,29 @@ fun CoffeeMenuScreen(viewModel: ProductViewModel, navController: NavController) 
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
                                                 Column(modifier = Modifier.weight(1f)) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = item.product.name,
+                                                            style = MaterialTheme.typography.bodyMedium,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.onSurface
+                                                        )
+                                                        Text(
+                                                            text = "×${item.quantity}",
+                                                            style = MaterialTheme.typography.bodyMedium,
+                                                            fontWeight = FontWeight.ExtraBold,
+                                                            color = MaterialTheme.colorScheme.primary
+                                                        )
+                                                    }
                                                     Text(
-                                                        text = item.product.name,
-                                                        style = MaterialTheme.typography.bodyMedium,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = MaterialTheme.colorScheme.onSurface
-                                                    )
-                                                    Text(
-                                                        text = "الحجم: ${item.size.name}",
+                                                        text = if (item.size.name == "عادي") "" else "الحجم: ${item.size.name}",
                                                         style = MaterialTheme.typography.bodySmall,
                                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                                     )
-                                                    val formattedItemPrice = java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(item.size.price)
+                                                    val formattedItemPrice = java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(item.size.price * item.quantity)
                                                     Text(
                                                         text = "$formattedItemPrice د.ع",
                                                         style = MaterialTheme.typography.bodySmall,
@@ -395,7 +540,7 @@ fun CoffeeMenuScreen(viewModel: ProductViewModel, navController: NavController) 
 
     // Interactive Order Complete Notification / Success Dialog
     if (showConfirmationDialog) {
-        val totalSum = cartItems.sumOf { it.size.price }
+        val totalSum = cartItems.sumOf { it.size.price * it.quantity }
         val formattedTotal = java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(totalSum)
 
         AlertDialog(
@@ -429,7 +574,7 @@ fun CoffeeMenuScreen(viewModel: ProductViewModel, navController: NavController) 
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "عدد المنتجات: ${cartItems.size} عنصر",
+                        text = "عدد المنتجات: ${cartItems.sumOf { it.quantity }} عنصر",
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Bold
                     )
@@ -511,7 +656,7 @@ fun ProductCard(product: Product, onAddToCart: (Product, ProductSize) -> Unit) {
                         }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                } else {
+                } else if (product.sizes.isNotEmpty() && product.sizes[0].name != "عادي") {
                     Text(
                         text = product.sizes[0].name,
                         style = MaterialTheme.typography.bodySmall,
@@ -548,6 +693,150 @@ fun ProductCard(product: Product, onAddToCart: (Product, ProductSize) -> Unit) {
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun LeshLogo(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(40.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.ic_launcher_background),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize()
+        )
+        Image(
+            painter = painterResource(id = R.drawable.ic_launcher_foreground),
+            contentDescription = "Lesh Cafe Logo",
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+}
+
+@Composable
+fun CategoryHeader(title: String, modifier: Modifier = Modifier) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = 20.dp, bottom = 6.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .width(4.dp)
+                .height(20.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(MaterialTheme.colorScheme.primary)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.ExtraBold,
+            color = MaterialTheme.colorScheme.primary
+        )
+    }
+}
+
+@Composable
+fun SplashScreen(navController: NavController, modifier: Modifier = Modifier) {
+    var startAnimation by remember { mutableStateOf(false) }
+    
+    val scale by animateFloatAsState(
+        targetValue = if (startAnimation) 1.1f else 0.8f,
+        animationSpec = tween(durationMillis = 1200),
+        label = "scale"
+    )
+    
+    val alpha by animateFloatAsState(
+        targetValue = if (startAnimation) 1.0f else 0.0f,
+        animationSpec = tween(durationMillis = 1000),
+        label = "alpha"
+    )
+
+    LaunchedEffect(Unit) {
+        startAnimation = true
+        kotlinx.coroutines.delay(2200)
+        navController.navigate("menu") {
+            popUpTo("splash") { inclusive = true }
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .clickable { 
+                navController.navigate("menu") {
+                    popUpTo("splash") { inclusive = true }
+                }
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier
+                .padding(24.dp)
+                .graphicsLayer(
+                    scaleX = scale,
+                    scaleY = scale,
+                    alpha = alpha
+                )
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(180.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.ic_launcher_background),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize()
+                )
+                Image(
+                    painter = painterResource(id = R.drawable.ic_launcher_foreground),
+                    contentDescription = "Lesh Cafe Logo",
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(28.dp))
+            
+            Text(
+                text = "ليش كافيه",
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            
+            Text(
+                text = "Lesh Cafe",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Text(
+                text = "ليش لا يكون يومك مميز",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+            )
+            
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            CircularProgressIndicator(
+                color = MaterialTheme.colorScheme.primary,
+                strokeWidth = 3.dp,
+                modifier = Modifier.size(24.dp)
+            )
         }
     }
 }

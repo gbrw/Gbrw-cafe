@@ -146,7 +146,7 @@ fun AdminEditProductScreen(navController: NavController, viewModel: ProductViewM
     
     var name by remember { mutableStateOf(initialProduct?.name ?: "") }
     var imageUrl by remember { mutableStateOf(initialProduct?.imageUrl ?: "") }
-    var category by remember { mutableStateOf(initialProduct?.category ?: "قهوة حارة") }
+    var category by remember { mutableStateOf(initialProduct?.category ?: "العصائر الطبيعية") }
     
     // We'll manage sizes as a list of mutable pairs for the UI
     var sizes by remember { mutableStateOf(
@@ -224,8 +224,32 @@ fun AdminEditProductScreen(navController: NavController, viewModel: ProductViewM
                 value = category,
                 onValueChange = { category = it },
                 label = { Text("التصنيف") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
             )
+
+            val categoriesList = listOf(
+                "العصائر الطبيعية",
+                "ميلك شيك",
+                "موهيتو",
+                "المشروبات الباردة",
+                "ايس تي",
+                "ايس لاتيه",
+                "ايس امريكانو",
+                "المشروبات الساخنة",
+                "القهوة"
+            )
+            androidx.compose.foundation.lazy.LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(categoriesList) { cat ->
+                    SuggestionChip(
+                        onClick = { category = cat },
+                        label = { Text(cat) }
+                    )
+                }
+            }
             
             Text("الأحجام والأسعار", style = MaterialTheme.typography.titleSmall)
             sizes.forEachIndexed { index, sizePair ->

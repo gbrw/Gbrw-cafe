@@ -46,4 +46,24 @@ class ProductRepository(private val productDao: ProductDao) {
     suspend fun deleteProductById(id: String) {
         productDao.deleteProductById(id)
     }
+
+    suspend fun deleteProductsByIds(ids: List<String>) {
+        productDao.deleteProductsByIds(ids)
+    }
+
+    suspend fun deleteAllProducts() {
+        productDao.deleteAllProducts()
+    }
+
+    suspend fun getAllProductsOnce(): List<Product> {
+        return productDao.getAllProductsOnce().map { entity ->
+            Product(
+                id = entity.id,
+                name = entity.name,
+                imageUrl = entity.imageUrl,
+                sizes = converters.toSizesList(entity.sizesJson),
+                category = entity.category
+            )
+        }
+    }
 }

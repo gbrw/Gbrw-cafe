@@ -19,6 +19,15 @@ interface ProductDao {
 
     @Query("DELETE FROM products WHERE id = :id")
     suspend fun deleteProductById(id: String)
+
+    @Query("DELETE FROM products WHERE id IN (:ids)")
+    suspend fun deleteProductsByIds(ids: List<String>)
+    
+    @Query("DELETE FROM products")
+    suspend fun deleteAllProducts()
+    
+    @Query("SELECT * FROM products")
+    suspend fun getAllProductsOnce(): List<ProductEntity>
     
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(products: List<ProductEntity>)

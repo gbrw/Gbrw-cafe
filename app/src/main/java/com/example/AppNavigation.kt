@@ -12,7 +12,10 @@ import com.example.ui.admin.AdminLoginScreen
 fun AppNavigation(viewModel: ProductViewModel) {
     val navController = rememberNavController()
 
-    NavHost(navController = navController, startDestination = "menu") {
+    NavHost(navController = navController, startDestination = "splash") {
+        composable("splash") {
+            SplashScreen(navController = navController)
+        }
         composable("menu") {
             CoffeeMenuScreen(viewModel = viewModel, navController = navController)
         }

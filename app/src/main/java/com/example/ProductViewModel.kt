@@ -19,10 +19,12 @@ class ProductViewModel(private val repository: ProductRepository) : ViewModel() 
 
     fun seedData() {
         viewModelScope.launch {
-            if (uiState.value.isEmpty()) {
-                sampleProducts.forEach { product ->
-                    repository.insertOrUpdateProduct(product)
-                }
+            // Delete all products to guarantee clean slate and precise updates of categories & items
+            repository.deleteAllProducts()
+            
+            // Register complete revised cafe catalog
+            sampleProducts.forEach { product ->
+                repository.insertOrUpdateProduct(product)
             }
         }
     }

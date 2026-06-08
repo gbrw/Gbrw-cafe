@@ -2,10 +2,15 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val CoffeePrimary = Color(0xFF6D4C41)
-val CoffeeSecondary = Color(0xFF8D6E63)
-val CoffeeTertiary = Color(0xFFA1887F)
+// Accent Matte Bronze Gold
+val AccentGoldenBronze = Color(0xFFA7916F)
 
-val CoffeePrimaryDark = Color(0xFF4E342E)
-val CoffeeSecondaryDark = Color(0xFF5D4037)
-val CoffeeTertiaryDark = Color(0xFF795548)
+// Light Mode Colors
+val LightBackground = Color(0xFFF4F2EA)
+val LightSurface = Color(0xFFFBF9F4)
+val LightText = Color(0xFF2E2018)
+
+// Dark Mode Colors
+val DarkBackground = Color(0xFF5A6044)
+val DarkSurface = Color(0xFF371C0D)
+val DarkText = Color(0xFFFFFFFF)

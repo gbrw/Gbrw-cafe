@@ -1,5 +1,5 @@
 {
-  "name": "Coffee Shop",
+  "name": "Lesh Cafe",
   "description": "Coffee Shop product display menu.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

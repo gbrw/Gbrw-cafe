@@ -1,3 +1,7 @@
+import java.net.URL
+import java.net.URI
+import java.io.File
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
@@ -11,7 +15,7 @@ android {
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "com.aistudio.coffeeshop.xcwqzx"
+    applicationId = "com.leshcafe.iq"
     minSdk = 24
     targetSdk = 36
     versionCode = 1
@@ -119,3 +123,43 @@ dependencies {
   "ksp"(libs.androidx.room.compiler)
   "ksp"(libs.moshi.kotlin.codegen)
 }
+
+tasks.register("downloadFonts") {
+    val fontDir = file("src/main/res/font")
+    if (!fontDir.exists()) { fontDir.mkdirs() }
+    
+    val tajawalRegular = file("src/main/res/font/tajawal_regular.ttf")
+    val tajawalBold = file("src/main/res/font/tajawal_bold.ttf")
+    val tajawalMedium = file("src/main/res/font/tajawal_medium.ttf")
+
+    outputs.files(tajawalRegular, tajawalBold, tajawalMedium)
+
+    doLast {
+        if (!tajawalRegular.exists()) {
+            URI("https://github.com/google/fonts/raw/main/ofl/tajawal/Tajawal-Regular.ttf").toURL().openStream().use { input ->
+                tajawalRegular.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+        }
+        if (!tajawalBold.exists()) {
+            URI("https://github.com/google/fonts/raw/main/ofl/tajawal/Tajawal-Bold.ttf").toURL().openStream().use { input ->
+                tajawalBold.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+        }
+        if (!tajawalMedium.exists()) {
+            URI("https://github.com/google/fonts/raw/main/ofl/tajawal/Tajawal-Medium.ttf").toURL().openStream().use { input ->
+                tajawalMedium.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+        }
+    }
+}
+
+tasks.matching { it.name.startsWith("preBuild") }.all {
+    dependsOn("downloadFonts")
+}
+

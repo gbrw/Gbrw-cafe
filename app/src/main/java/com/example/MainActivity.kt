@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import android.bluetooth.BluetoothDevice
+import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -39,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.ui.draw.clip
@@ -578,17 +580,29 @@ fun CoffeeMenuScreen(viewModel: ProductViewModel, navController: NavController) 
                                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                                         fontWeight = FontWeight.Bold
                                     )
-                                    Spacer(modifier = Modifier.height(10.dp))
-                                    Button(
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    ElevatedButton(
                                         onClick = { showPrintDialog = true },
-                                        modifier = Modifier.fillMaxWidth().height(48.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.primary,
-                                            contentColor = MaterialTheme.colorScheme.onPrimary
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(54.dp),
+                                        colors = ButtonDefaults.elevatedButtonColors(
+                                            containerColor = Color(0xFF2E7D32), // high-visibility print green
+                                            contentColor = Color.White
                                         ),
-                                        shape = RoundedCornerShape(12.dp)
+                                        elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 6.dp),
+                                        shape = RoundedCornerShape(14.dp)
                                     ) {
-                                        Text("طباعة الفاتورة 8cm 🖨️", fontWeight = FontWeight.Bold)
+                                        Row(
+                                            horizontalArrangement = Arrangement.Center,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "🖨️ طباعة الفاتورة (بلوتوث)",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -909,17 +923,29 @@ fun CoffeeMenuScreen(viewModel: ProductViewModel, navController: NavController) 
                                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                                         fontWeight = FontWeight.Bold
                                     )
-                                    Spacer(modifier = Modifier.height(10.dp))
-                                    Button(
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    ElevatedButton(
                                         onClick = { showPrintDialog = true },
-                                        modifier = Modifier.fillMaxWidth().height(48.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.primary,
-                                            contentColor = MaterialTheme.colorScheme.onPrimary
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(54.dp),
+                                        colors = ButtonDefaults.elevatedButtonColors(
+                                            containerColor = Color(0xFF2E7D32), // high-visibility print green
+                                            contentColor = Color.White
                                         ),
-                                        shape = RoundedCornerShape(12.dp)
+                                        elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 6.dp),
+                                        shape = RoundedCornerShape(14.dp)
                                     ) {
-                                        Text("طباعة الفاتورة 8cm 🖨️", fontWeight = FontWeight.Bold)
+                                        Row(
+                                            horizontalArrangement = Arrangement.Center,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "🖨️ طباعة الفاتورة (بلوتوث)",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -982,6 +1008,32 @@ fun CoffeeMenuScreen(viewModel: ProductViewModel, navController: NavController) 
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Spacer(modifier = Modifier.height(20.dp))
+                    ElevatedButton(
+                        onClick = {
+                            showPrintDialog = true
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
+                        colors = ButtonDefaults.elevatedButtonColors(
+                            containerColor = Color(0xFF2E7D32), // High-visibility print green
+                            contentColor = Color.White
+                        ),
+                        elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 6.dp),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "🖨️ طباعة الفاتورة الفورية (بلوتوث)",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
             }
         )
@@ -999,7 +1051,6 @@ fun CoffeeMenuScreen(viewModel: ProductViewModel, navController: NavController) 
     }
 }
 
-@SuppressLint("MissingPermission")
 @Composable
 fun BluetoothPrintDialog(
     cartItems: List<CartItem>,
@@ -1009,9 +1060,14 @@ fun BluetoothPrintDialog(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     
-    var devices by remember { mutableStateOf<List<BluetoothDevice>>(emptyList()) }
+    // Shared Preferences to persist selected Bluetooth printer details
+    val sharedPrefs = remember { context.getSharedPreferences("LESH_CAFE_PRINT_PREFS", Context.MODE_PRIVATE) }
+    var selectedDeviceAddress by remember { mutableStateOf(sharedPrefs.getString("selected_printer_mac", "") ?: "") }
+    var selectedDeviceName by remember { mutableStateOf(sharedPrefs.getString("selected_printer_name", "") ?: "") }
+    
     var statusMessage by remember { mutableStateOf("") }
-    var hasPermission by remember { mutableStateOf(false) }
+    var hasPermission by remember { mutableStateOf(BluetoothPrinterHelper.hasBluetoothPermissions(context)) }
+    var devices by remember { mutableStateOf<List<BluetoothDevice>>(emptyList()) }
     var previewBitmap by remember { mutableStateOf<Bitmap?>(null) }
     
     val requestPermissionLauncher = rememberLauncherForActivityResult(
@@ -1021,20 +1077,32 @@ fun BluetoothPrintDialog(
         hasPermission = granted
         if (granted) {
             devices = BluetoothPrinterHelper.getPairedDevices(context)
-            statusMessage = "تم منح الصلاحية بنجاح! جاري جلب الأجهزة المقترنة..."
+            statusMessage = "تم منح الصلاحيات بنجاح! جاري جلب الأجهزة المقترنة..."
         } else {
             statusMessage = "برجاء توفير صلاحيات بلوتوث لتمكين الطباعة الحرارية."
         }
     }
     
-    LaunchedEffect(cartItems) {
-        hasPermission = BluetoothPrinterHelper.hasBluetoothPermissions(context)
+    LaunchedEffect(hasPermission) {
         if (hasPermission) {
             devices = BluetoothPrinterHelper.getPairedDevices(context)
-        } else {
-            statusMessage = "بلوتوث يتطلب صلاحيات للوصول للطابعات."
+            if (selectedDeviceAddress.isBlank() && devices.isNotEmpty()) {
+                val firstDevice = devices.first()
+                try {
+                    selectedDeviceAddress = firstDevice.address
+                    selectedDeviceName = firstDevice.name ?: "Unknown Printer"
+                    sharedPrefs.edit()
+                        .putString("selected_printer_mac", firstDevice.address)
+                        .putString("selected_printer_name", selectedDeviceName)
+                        .apply()
+                } catch (e: SecurityException) {
+                    // Fail gracefully
+                }
+            }
         }
-        
+    }
+    
+    LaunchedEffect(cartItems) {
         // Generate high-fidelity visual receipt preview
         try {
             val sdfDate = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault())
@@ -1060,7 +1128,7 @@ fun BluetoothPrintDialog(
         },
         title = {
             Text(
-                text = "طباعة الفاتورة 8cm 🖨️",
+                text = "إصدار وطباعة الفاتورة (بلوتوث) 🖨️",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -1073,7 +1141,7 @@ fun BluetoothPrintDialog(
                     .verticalScroll(rememberScrollState())
             ) {
                 Text(
-                    text = "معاينة الفاتورة الحرارية (80mm):",
+                    text = "معاينة الفاتورة قبل الطباعة (80mm):",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1085,7 +1153,7 @@ fun BluetoothPrintDialog(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(300.dp),
+                        .height(260.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = Color(0xFFFAF9F6) // warm receipt white
@@ -1116,25 +1184,129 @@ fun BluetoothPrintDialog(
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                Text(
-                    text = "الطابعات المقترنة بالطاقة والبلوتوث:",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                
-                Spacer(modifier = Modifier.height(6.dp))
-                
                 if (!hasPermission) {
-                    Button(
-                        onClick = {
-                            requestPermissionLauncher.launch(BluetoothPrinterHelper.getRequiredPermissions())
-                        },
-                        modifier = Modifier.fillMaxWidth()
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
+                        ),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("منح صلاحيات البلوتوث والطباعة")
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "تطبيق ليش كافيه يتطلب صلاحيات البلوتوث للاتصال بالطابعة الحرارية وإصدار فواتير الزبائن فورا.",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Button(
+                                onClick = {
+                                    requestPermissionLauncher.launch(BluetoothPrinterHelper.getRequiredPermissions())
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("منح صلاحيات البلوتوث ومتابعة الطباعة 🔒", fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+                        }
                     }
                 } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f),
+                                RoundedCornerShape(12.dp)
+                            )
+                            .padding(14.dp)
+                    ) {
+                        // If there is a saved device, show action print button
+                        if (selectedDeviceAddress.isNotBlank()) {
+                            Button(
+                                onClick = {
+                                    val device = devices.find { it.address == selectedDeviceAddress }
+                                    if (device != null) {
+                                        scope.launch {
+                                            BluetoothPrinterHelper.printCustomReceipt(
+                                                context,
+                                                device,
+                                                cartItems
+                                            ) { status ->
+                                                statusMessage = status
+                                            }
+                                        }
+                                    } else {
+                                        // Attempt with whatever device matches address
+                                        try {
+                                            val adapter = android.bluetooth.BluetoothAdapter.getDefaultAdapter()
+                                            val remoteDevice = adapter?.getRemoteDevice(selectedDeviceAddress)
+                                            if (remoteDevice != null) {
+                                                scope.launch {
+                                                    BluetoothPrinterHelper.printCustomReceipt(
+                                                        context,
+                                                        remoteDevice,
+                                                        cartItems
+                                                    ) { status ->
+                                                        statusMessage = status
+                                                    }
+                                                }
+                                            } else {
+                                                statusMessage = "الطابعة المطلوبة غير متوفرة حالياً بالبلوتوث"
+                                            }
+                                        } catch (e: Exception) {
+                                            statusMessage = "لا تتوفر طابعة مرتبطة أو مقترنة حالياً"
+                                        }
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF2E7D32) // Prominent print green
+                                ),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text("🖨️ اضغط لطباعة الفاتورة فوراّ", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 16.sp)
+                            }
+                            
+                            Spacer(modifier = Modifier.height(10.dp))
+                            
+                            // Active printer address
+                            Text(
+                                text = "طابعة البلوتوث النشطة: $selectedDeviceName",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.align(Alignment.CenterHorizontally)
+                            )
+                        } else {
+                            Text(
+                                text = "برجاء اختيار الطابعة من قائمة الطابعات المقترنة بالأسفل لبدء الطباعة 🔌",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.align(Alignment.CenterHorizontally)
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Text(
+                        text = "اختر طابعة البلوتوث المقترنة بالهاتف:",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    
+                    Spacer(modifier = Modifier.height(6.dp))
+                    
                     if (devices.isEmpty()) {
                         Column(
                             modifier = Modifier
@@ -1146,14 +1318,14 @@ fun BluetoothPrintDialog(
                                 .padding(12.dp)
                         ) {
                             Text(
-                                text = "لم يتم العثور على طابعات بلوتوث مقترنة بالهاتف.",
+                                text = "لم يتم العثور على أجهزة بلوتوث مقترنة بالهاتف.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onErrorContainer,
                                 fontWeight = FontWeight.Bold
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "يرجى تشغيل الطابعة والاقتران بها أولاً من إعدادات البلوتوث للنظام.",
+                                text = "يرجى تشغيل طابعة الإيصالات، والاقتران بها أولاً من إعدادات بلوتوث النظام.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onErrorContainer
                             )
@@ -1174,17 +1346,26 @@ fun BluetoothPrintDialog(
                                 ),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text("فتح إعدادات البلوتوث", color = Color.White)
+                                Text("فتح إعدادات البلوتوث للتسجيل", color = Color.White, fontWeight = FontWeight.Bold)
                             }
                         }
                     } else {
-                        // Display Paired devices
                         devices.forEach { device ->
+                            val isSelected = device.address == selectedDeviceAddress
+                            val deviceName = try { device.name ?: "طابعة حرارية غير معروفة" } catch (e: SecurityException) { "طابعة حرارية" }
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 4.dp)
                                     .clickable {
+                                        selectedDeviceAddress = device.address
+                                        selectedDeviceName = deviceName
+                                        sharedPrefs.edit()
+                                            .putString("selected_printer_mac", device.address)
+                                            .putString("selected_printer_name", deviceName)
+                                            .apply()
+                                        
+                                        // Auto print upon selection for ultimate worker convenience
                                         scope.launch {
                                             BluetoothPrinterHelper.printCustomReceipt(
                                                 context,
@@ -1196,9 +1377,10 @@ fun BluetoothPrintDialog(
                                         }
                                     },
                                 colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                                    containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                                 ),
-                                shape = RoundedCornerShape(8.dp)
+                                shape = RoundedCornerShape(8.dp),
+                                border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
                             ) {
                                 Row(
                                     modifier = Modifier
@@ -1209,23 +1391,32 @@ fun BluetoothPrintDialog(
                                 ) {
                                     Column {
                                         Text(
-                                            text = device.name ?: "طابعة حرارية بلوتوث",
+                                            text = deviceName,
                                             style = MaterialTheme.typography.bodyMedium,
                                             fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         Text(
                                             text = device.address,
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                                            color = (if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant).copy(alpha = 0.7f)
                                         )
                                     }
-                                    Text(
-                                        text = "اضغط للطباعة 🖨️",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
+                                    if (isSelected) {
+                                        Text(
+                                            text = "نشطة وطباعة 🖨️✨",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    } else {
+                                        Text(
+                                            text = "اختر واطبع 🔌",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.Normal,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1237,7 +1428,7 @@ fun BluetoothPrintDialog(
                     Text(
                         text = statusMessage,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier
                             .fillMaxWidth()

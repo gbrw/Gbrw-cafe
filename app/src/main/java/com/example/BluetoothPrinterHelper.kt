@@ -156,12 +156,12 @@ object BluetoothPrinterHelper {
         // Load Custom Arabic Tajawal Font if possible
         val tajawalBold = try {
             ResourcesCompat.getFont(context, R.font.tajawal_bold)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         }
         val tajawalRegular = try {
             ResourcesCompat.getFont(context, R.font.tajawal_regular)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
         }
         
@@ -549,6 +549,108 @@ object BluetoothPrinterHelper {
                 socket?.close()
             } catch (e: Exception) {
                 // Ignore socket closures
+            }
+        }
+    }
+
+    /**
+     * Connects to a WiFi / Network thermal printer via TCP socket on port 9100.
+     * Sends the beautifully sliced esc/pos receipt commands.
+     */
+    suspend fun printCustomReceiptOverWifi(
+        context: Context,
+        ipAddress: String,
+        port: Int = 9100,
+        items: List<CartItem>,
+        onStatus: (String) -> Unit
+    ): Boolean = withContext(Dispatchers.IO) {
+        var socket: java.net.Socket? = null
+        var outputStream: OutputStream? = null
+        try {
+            onStatus("جاري الاتصال بالطابعة عبر الشبكة ($ipAddress)...")
+            
+            socket = java.net.Socket()
+            socket.connect(java.net.InetSocketAddress(ipAddress, port), 4000) // 4s timeout
+            outputStream = socket.getOutputStream()
+            
+            onStatus("تم الاتصال بنجاح! جاري توليد الفاتورة...")
+            
+            // Generate metadata
+            val sdfDate = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault())
+            val sdfTime = SimpleDateFormat("hh:mm a", Locale.getDefault())
+            val randNum = (1000..9999).random()
+            val receiptNo = "LSH-$randNum"
+            val now = Date()
+            
+            val bitmap = generate80mmReceiptBitmap(
+                context = context,
+                items = items,
+                receiptNo = receiptNo,
+                dateStr = sdfDate.format(now),
+                timeStr = sdfTime.format(now)
+            )
+            
+            val width = bitmap.width
+            val height = bitmap.height
+            
+            onStatus("جاري تحويل وتقطيع الفاتورة لمقاطع حرارية...")
+            
+            // Initialize printer session
+            outputStream.write(0x1B)
+            outputStream.write(0x40) // ESC @: Initialize printer
+            outputStream.write(0x1B)
+            outputStream.write(0x61)
+            outputStream.write(0x01) // Center align
+            outputStream.flush()
+            
+            // Slice height of 100-120 pixels is universally optimal
+            val sliceHeight = 110
+            val numSlices = (height + sliceHeight - 1) / sliceHeight
+            
+            for (i in 0 until numSlices) {
+                val startY = i * sliceHeight
+                val currentSliceHeight = minOf(sliceHeight, height - startY)
+                
+                onStatus("جاري نقل وطباعة الجزء ${i + 1} من $numSlices...")
+                
+                val sliceBitmap = Bitmap.createBitmap(bitmap, 0, startY, width, currentSliceHeight)
+                val sliceBytes = convertSingleSliceToEscPos(sliceBitmap)
+                
+                outputStream.write(sliceBytes)
+                outputStream.flush()
+                
+                sliceBitmap.recycle()
+                
+                kotlinx.coroutines.delay(80)
+            }
+            
+            onStatus("جاري إنهاء وإخراج الورق...")
+            val footerStream = ByteArrayOutputStream()
+            footerStream.write(0x1B)
+            footerStream.write(0x64)
+            footerStream.write(4)
+            
+            footerStream.write(0x1D)
+            footerStream.write(0x56)
+            footerStream.write(0x41)
+            footerStream.write(0x00)
+            
+            outputStream.write(footerStream.toByteArray())
+            outputStream.flush()
+            
+            bitmap.recycle()
+            onStatus("تم عملية الطباعة اللاسلكية بنجاح تام! 🎉")
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            onStatus("حدث خطأ أثناء طباعة الواي فاي:\n${e.localizedMessage}\n(تأكد من كتابة الـ IP الصحيح وأن الطابعة متصلة بنفس الشبكة)")
+            false
+        } finally {
+            try {
+                outputStream?.close()
+                socket?.close()
+            } catch (e: Exception) {
+                // Ignore closures
             }
         }
     }

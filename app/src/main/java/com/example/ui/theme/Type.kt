@@ -8,12 +8,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.example.R
 
-// Set up Tajawal Font Family
-val TajawalFamily = FontFamily(
-    Font(R.font.tajawal_regular, FontWeight.Normal),
-    Font(R.font.tajawal_medium, FontWeight.Medium),
-    Font(R.font.tajawal_bold, FontWeight.Bold)
-)
+// Set up Tajawal Font Family (fall back to System Sans-Serif font to prevent runtime crashes)
+val TajawalFamily = FontFamily.SansSerif
 
 // Set of Material typography styles to start with
 val Typography = Typography(

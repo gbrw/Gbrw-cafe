@@ -135,24 +135,34 @@ tasks.register("downloadFonts") {
     outputs.files(tajawalRegular, tajawalBold, tajawalMedium)
 
     doLast {
-        if (!tajawalRegular.exists()) {
-            URI("https://github.com/google/fonts/raw/main/ofl/tajawal/Tajawal-Regular.ttf").toURL().openStream().use { input ->
+        val regUrl = "https://raw.githubusercontent.com/google/fonts/main/ofl/tajawal/Tajawal-Regular.ttf"
+        val boldUrl = "https://raw.githubusercontent.com/google/fonts/main/ofl/tajawal/Tajawal-Bold.ttf"
+        val medUrl = "https://raw.githubusercontent.com/google/fonts/main/ofl/tajawal/Tajawal-Medium.ttf"
+
+        if (!tajawalRegular.exists() || tajawalRegular.length() < 10000) {
+            println("Downloading Tajawal-Regular.ttf from $regUrl...")
+            URI(regUrl).toURL().openStream().use { input ->
                 tajawalRegular.outputStream().use { output ->
-                    input.copyTo(output)
+                    val copied = input.copyTo(output)
+                    println("Downloaded Regular: $copied bytes")
                 }
             }
         }
-        if (!tajawalBold.exists()) {
-            URI("https://github.com/google/fonts/raw/main/ofl/tajawal/Tajawal-Bold.ttf").toURL().openStream().use { input ->
+        if (!tajawalBold.exists() || tajawalBold.length() < 10000) {
+            println("Downloading Tajawal-Bold.ttf from $boldUrl...")
+            URI(boldUrl).toURL().openStream().use { input ->
                 tajawalBold.outputStream().use { output ->
-                    input.copyTo(output)
+                    val copied = input.copyTo(output)
+                    println("Downloaded Bold: $copied bytes")
                 }
             }
         }
-        if (!tajawalMedium.exists()) {
-            URI("https://github.com/google/fonts/raw/main/ofl/tajawal/Tajawal-Medium.ttf").toURL().openStream().use { input ->
+        if (!tajawalMedium.exists() || tajawalMedium.length() < 10000) {
+            println("Downloading Tajawal-Medium.ttf from $medUrl...")
+            URI(medUrl).toURL().openStream().use { input ->
                 tajawalMedium.outputStream().use { output ->
-                    input.copyTo(output)
+                    val copied = input.copyTo(output)
+                    println("Downloaded Medium: $copied bytes")
                 }
             }
         }

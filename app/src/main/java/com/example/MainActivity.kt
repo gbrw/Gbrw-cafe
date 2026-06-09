@@ -4,6 +4,20 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import android.bluetooth.BluetoothDevice
+import android.content.Intent
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import android.graphics.Bitmap
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.Date
+import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.staggeredgrid.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -187,6 +201,7 @@ fun CoffeeMenuScreen(viewModel: ProductViewModel, navController: NavController) 
     val cartItems = viewModel.cartItems
     var isCartExpanded by rememberSaveable { mutableStateOf(false) }
     var showConfirmationDialog by remember { mutableStateOf(false) }
+    var showPrintDialog by remember { mutableStateOf(false) }
 
     val filteredProducts = remember(searchQuery, selectedCategory, products) {
         products.filter {
@@ -563,6 +578,18 @@ fun CoffeeMenuScreen(viewModel: ProductViewModel, navController: NavController) 
                                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                                         fontWeight = FontWeight.Bold
                                     )
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Button(
+                                        onClick = { showPrintDialog = true },
+                                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.primary,
+                                            contentColor = MaterialTheme.colorScheme.onPrimary
+                                        ),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Text("طباعة الفاتورة 8cm 🖨️", fontWeight = FontWeight.Bold)
+                                    }
                                 }
                             }
                         }
@@ -882,6 +909,18 @@ fun CoffeeMenuScreen(viewModel: ProductViewModel, navController: NavController) 
                                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                                         fontWeight = FontWeight.Bold
                                     )
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Button(
+                                        onClick = { showPrintDialog = true },
+                                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.primary,
+                                            contentColor = MaterialTheme.colorScheme.onPrimary
+                                        ),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Text("طباعة الفاتورة 8cm 🖨️", fontWeight = FontWeight.Bold)
+                                    }
                                 }
                             }
                         }
@@ -947,6 +986,288 @@ fun CoffeeMenuScreen(viewModel: ProductViewModel, navController: NavController) 
             }
         )
     }
+
+    if (showPrintDialog) {
+        BluetoothPrintDialog(
+            cartItems = cartItems,
+            onDismissRequest = { showPrintDialog = false },
+            onOrderCompleted = {
+                cartItems.clear()
+                showPrintDialog = false
+            }
+        )
+    }
+}
+
+@SuppressLint("MissingPermission")
+@Composable
+fun BluetoothPrintDialog(
+    cartItems: List<CartItem>,
+    onDismissRequest: () -> Unit,
+    onOrderCompleted: () -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    
+    var devices by remember { mutableStateOf<List<BluetoothDevice>>(emptyList()) }
+    var statusMessage by remember { mutableStateOf("") }
+    var hasPermission by remember { mutableStateOf(false) }
+    var previewBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    
+    val requestPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions.values.all { it }
+        hasPermission = granted
+        if (granted) {
+            devices = BluetoothPrinterHelper.getPairedDevices(context)
+            statusMessage = "تم منح الصلاحية بنجاح! جاري جلب الأجهزة المقترنة..."
+        } else {
+            statusMessage = "برجاء توفير صلاحيات بلوتوث لتمكين الطباعة الحرارية."
+        }
+    }
+    
+    LaunchedEffect(cartItems) {
+        hasPermission = BluetoothPrinterHelper.hasBluetoothPermissions(context)
+        if (hasPermission) {
+            devices = BluetoothPrinterHelper.getPairedDevices(context)
+        } else {
+            statusMessage = "بلوتوث يتطلب صلاحيات للوصول للطابعات."
+        }
+        
+        // Generate high-fidelity visual receipt preview
+        try {
+            val sdfDate = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault())
+            val sdfTime = SimpleDateFormat("hh:mm a", Locale.getDefault())
+            val randNum = (1000..9999).random()
+            val receiptNo = "LSH-$randNum"
+            val now = Date()
+            
+            previewBitmap = BluetoothPrinterHelper.generate80mmReceiptBitmap(
+                context, cartItems, receiptNo, sdfDate.format(now), sdfTime.format(now)
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+    
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        confirmButton = {
+            TextButton(onClick = onDismissRequest) {
+                Text("إغلاق", fontWeight = FontWeight.Bold)
+            }
+        },
+        title = {
+            Text(
+                text = "طباعة الفاتورة 8cm 🖨️",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    text = "معاينة الفاتورة الحرارية (80mm):",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Receipt Visual Card Mock
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(300.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFFFAF9F6) // warm receipt white
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(8.dp),
+                        contentAlignment = Alignment.TopCenter
+                    ) {
+                        previewBitmap?.let { bmp ->
+                            Image(
+                                bitmap = bmp.asImageBitmap(),
+                                contentDescription = "معاينة الفاتورة قبل الطباعة",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit
+                            )
+                        } ?: Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Text(
+                    text = "الطابعات المقترنة بالطاقة والبلوتوث:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                Spacer(modifier = Modifier.height(6.dp))
+                
+                if (!hasPermission) {
+                    Button(
+                        onClick = {
+                            requestPermissionLauncher.launch(BluetoothPrinterHelper.getRequiredPermissions())
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("منح صلاحيات البلوتوث والطباعة")
+                    }
+                } else {
+                    if (devices.isEmpty()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .padding(12.dp)
+                        ) {
+                            Text(
+                                text = "لم يتم العثور على طابعات بلوتوث مقترنة بالهاتف.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "يرجى تشغيل الطابعة والاقتران بها أولاً من إعدادات البلوتوث للنظام.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Button(
+                                onClick = {
+                                    try {
+                                        val intent = Intent(Settings.ACTION_BLUETOOTH_SETTINGS).apply {
+                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                        }
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        statusMessage = "تعذر فتح الإعدادات تلقائياً"
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("فتح إعدادات البلوتوث", color = Color.White)
+                            }
+                        }
+                    } else {
+                        // Display Paired devices
+                        devices.forEach { device ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                                    .clickable {
+                                        scope.launch {
+                                            BluetoothPrinterHelper.printCustomReceipt(
+                                                context,
+                                                device,
+                                                cartItems
+                                            ) { status ->
+                                                statusMessage = status
+                                            }
+                                        }
+                                    },
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = device.name ?: "طابعة حرارية بلوتوث",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                                        )
+                                        Text(
+                                            text = device.address,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                                        )
+                                    }
+                                    Text(
+                                        text = "اضغط للطباعة 🖨️",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                if (statusMessage.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = statusMessage,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                                RoundedCornerShape(6.dp)
+                            )
+                            .padding(8.dp)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Button(
+                    onClick = {
+                        onOrderCompleted()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("إكمال الطلب وتفريغ السلة ✅", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)

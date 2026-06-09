@@ -17,6 +17,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,6 +37,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalConfiguration
+import android.content.res.Configuration
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
@@ -180,8 +184,8 @@ fun CoffeeMenuScreen(viewModel: ProductViewModel, navController: NavController) 
     var selectedCategory by remember { mutableStateOf("الكل") }
     
     // Settle dynamic checkout card lists
-    val cartItems = remember { mutableStateListOf<CartItem>() }
-    var isCartExpanded by remember { mutableStateOf(false) }
+    val cartItems = viewModel.cartItems
+    var isCartExpanded by rememberSaveable { mutableStateOf(false) }
     var showConfirmationDialog by remember { mutableStateOf(false) }
 
     val filteredProducts = remember(searchQuery, selectedCategory, products) {
@@ -238,7 +242,6 @@ fun CoffeeMenuScreen(viewModel: ProductViewModel, navController: NavController) 
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 ),
                 actions = {
-                    // Badge details for active listings
                     val totalQuantity = cartItems.sumOf { it.quantity }
                     IconButton(onClick = { 
                         if (cartItems.isNotEmpty()) {
@@ -266,145 +269,141 @@ fun CoffeeMenuScreen(viewModel: ProductViewModel, navController: NavController) 
             )
         }
     ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            Column(
-                modifier = Modifier.fillMaxSize()
+        val configuration = LocalConfiguration.current
+        val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+        if (isLandscape) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
             ) {
-                // Search Bar
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
+                // Products grid columns on the left (taking majority of the space)
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    placeholder = { Text("البحث عن منتج...") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = true
-                )
-
-                // Categories Filter Row
-                val dynamicCategories = remember(products, categoriesOrder) {
-                    val existing = products.map { it.category }.distinct()
-                    val sorted = categoriesOrder.filter { it in existing }
-                    val remaining = existing - categoriesOrder.toSet()
-                    listOf("الكل") + sorted + remaining
-                }
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(bottom = 12.dp)
+                        .weight(1.3f)
+                        .fillMaxHeight()
                 ) {
-                    items(dynamicCategories) { category ->
-                        FilterChip(
-                            selected = selectedCategory == category,
-                            onClick = { selectedCategory = category },
-                            label = { Text(category) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
-                            )
-                        )
-                    }
-                }
-
-                // Calculate dynamic bottom padding so grid item elements aren't obscured by bottom bar card
-                val bottomGridPadding = if (cartItems.isNotEmpty()) {
-                    if (isCartExpanded) 340.dp else 115.dp
-                } else {
-                    16.dp
-                }
-
-                // Product Grid
-                LazyVerticalStaggeredGrid(
-                    columns = StaggeredGridCells.Adaptive(minSize = 180.dp),
-                    contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = bottomGridPadding),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalItemSpacing = 16.dp,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    groupedProducts.forEach { (categoryName, productList) ->
-                        item(span = StaggeredGridItemSpan.FullLine) {
-                            CategoryHeader(title = categoryName)
-                        }
-                        items(productList, key = { it.id }) { product ->
-                            ProductCard(
-                                product = product,
-                                onAddToCart = { selectedProd, selectedSize ->
-                                    val existingIndex = cartItems.indexOfFirst { 
-                                        it.product.id == selectedProd.id && it.size.name == selectedSize.name 
-                                    }
-                                    if (existingIndex != -1) {
-                                        val existingItem = cartItems[existingIndex]
-                                        cartItems[existingIndex] = existingItem.copy(quantity = existingItem.quantity + 1)
-                                    } else {
-                                        cartItems.add(CartItem(product = selectedProd, size = selectedSize, quantity = 1))
-                                    }
-                                    // Auto-expand when a product is clicked/added so the user knows it's added!
-                                    isCartExpanded = true
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Collapsible/Expanding persistent bottom sheet overlay at the bottom
-            if (cartItems.isNotEmpty()) {
-                val totalSum = cartItems.sumOf { it.size.price * it.quantity }
-                val formattedTotal = java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(totalSum)
-
-                Card(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 16.dp, bottomEnd = 16.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    )
-                ) {
-                    Column(
+                    // Search Bar
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(14.dp)
-                    ) {
-                        // Slider / Drag Handle Indicator
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.CenterHorizontally)
-                                .size(width = 40.dp, height = 4.dp)
-                                .clip(RoundedCornerShape(2.dp))
-                                .background(MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f))
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        placeholder = { Text("البحث عن منتج...") },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true
+                    )
 
-                        // Header Row
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.ShoppingCart,
-                                    contentDescription = "السلة",
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                               )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "تفاصيل السلة/الفاتورة (${cartItems.sumOf { it.quantity }})",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    // Categories Filter Row
+                    val dynamicCategories = remember(products, categoriesOrder) {
+                        val existing = products.map { it.category }.distinct()
+                        val sorted = categoriesOrder.filter { it in existing }
+                        val remaining = existing - categoriesOrder.toSet()
+                        listOf("الكل") + sorted + remaining
+                    }
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    ) {
+                        items(dynamicCategories) { category ->
+                            FilterChip(
+                                selected = selectedCategory == category,
+                                onClick = { selectedCategory = category },
+                                label = { Text(category) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                                )
+                            )
+                        }
+                    }
+
+                    // Product Grid (No dynamic bottom padding needed in landscape!)
+                    LazyVerticalStaggeredGrid(
+                        columns = StaggeredGridCells.Adaptive(minSize = 180.dp),
+                        contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalItemSpacing = 16.dp,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        groupedProducts.forEach { (categoryName, productList) ->
+                            item(span = StaggeredGridItemSpan.FullLine) {
+                                CategoryHeader(title = categoryName)
+                            }
+                            items(productList, key = { it.id }) { product ->
+                                ProductCard(
+                                    product = product,
+                                    onAddToCart = { selectedProd, selectedSize ->
+                                        val existingIndex = cartItems.indexOfFirst { 
+                                            it.product.id == selectedProd.id && it.size.name == selectedSize.name 
+                                        }
+                                        if (existingIndex != -1) {
+                                            val existingItem = cartItems[existingIndex]
+                                            cartItems[existingIndex] = existingItem.copy(quantity = existingItem.quantity + 1)
+                                        } else {
+                                            cartItems.add(CartItem(product = selectedProd, size = selectedSize, quantity = 1))
+                                        }
+                                        isCartExpanded = true
+                                    }
                                 )
                             }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                        }
+                    }
+                }
+
+                // Split pane Cart detail side bar on the right
+                if (cartItems.isNotEmpty()) {
+                    val totalSum = cartItems.sumOf { it.size.price * it.quantity }
+                    val formattedTotal = java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(totalSum)
+
+                    Card(
+                        modifier = Modifier
+                            .weight(0.7f)
+                            .fillMaxHeight()
+                            .padding(end = 12.dp, top = 8.dp, bottom = 8.dp, start = 4.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(12.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.CenterHorizontally)
+                                    .size(width = 40.dp, height = 4.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f))
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.ShoppingCart,
+                                        contentDescription = "السلة",
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "تفاصيل السلة (${cartItems.sumOf { it.quantity }})",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
                                 IconButton(onClick = { cartItems.clear() }) {
                                     Icon(
                                         imageVector = Icons.Default.Delete,
@@ -412,82 +411,125 @@ fun CoffeeMenuScreen(viewModel: ProductViewModel, navController: NavController) 
                                         tint = MaterialTheme.colorScheme.error
                                     )
                                 }
-                                IconButton(onClick = { isCartExpanded = !isCartExpanded }) {
-                                    Icon(
-                                        imageVector = if (isCartExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
-                                        contentDescription = if (isCartExpanded) "تصغير" else "توسيع",
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                }
                             }
-                        }
 
-                        // Expanded item lists
-                        AnimatedVisibility(visible = isCartExpanded) {
-                            Column {
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(vertical = 8.dp),
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
-                                )
-                                LazyColumn(
-                                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .heightIn(max = 160.dp)
-                                ) {
-                                    items(cartItems, key = { it.id }) { item ->
-                                        Card(
-                                            colors = CardDefaults.cardColors(
-                                                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
-                                            ),
-                                            shape = RoundedCornerShape(12.dp),
-                                            modifier = Modifier.fillMaxWidth()
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 6.dp),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
+                            )
+
+                            LazyColumn(
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth()
+                            ) {
+                                items(cartItems, key = { it.id }) { item ->
+                                    Card(
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                                        ),
+                                        shape = RoundedCornerShape(12.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(8.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(10.dp),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Column(modifier = Modifier.weight(1f)) {
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                                    ) {
-                                                        Text(
-                                                            text = item.product.name,
-                                                            style = MaterialTheme.typography.bodyMedium,
-                                                            fontWeight = FontWeight.Bold,
-                                                            color = MaterialTheme.colorScheme.onSurface
-                                                        )
-                                                        Text(
-                                                            text = "×${item.quantity}",
-                                                            style = MaterialTheme.typography.bodyMedium,
-                                                            fontWeight = FontWeight.ExtraBold,
-                                                            color = MaterialTheme.colorScheme.primary
-                                                        )
-                                                    }
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                ) {
                                                     Text(
-                                                        text = if (item.size.name == "عادي") "" else "الحجم: ${item.size.name}",
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                        text = item.product.name,
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = MaterialTheme.colorScheme.onSurface
                                                     )
-                                                    val formattedItemPrice = java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(item.size.price * item.quantity)
                                                     Text(
-                                                        text = "$formattedItemPrice د.ع",
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = MaterialTheme.colorScheme.primary,
-                                                        fontWeight = FontWeight.Bold
+                                                        text = "×${item.quantity}",
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        fontWeight = FontWeight.ExtraBold,
+                                                        color = MaterialTheme.colorScheme.primary
                                                     )
                                                 }
+                                                Text(
+                                                    text = if (item.size.name == "عادي") "" else "الحجم: ${item.size.name}",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                val formattedItemPrice = java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(item.size.price * item.quantity)
+                                                Text(
+                                                    text = "$formattedItemPrice د.ع",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                            ) {
                                                 IconButton(
-                                                    onClick = { cartItems.remove(item) }
+                                                    onClick = {
+                                                        val idx = cartItems.indexOf(item)
+                                                        if (idx != -1) {
+                                                            if (item.quantity > 1) {
+                                                                cartItems[idx] = item.copy(quantity = item.quantity - 1)
+                                                            } else {
+                                                                cartItems.removeAt(idx)
+                                                            }
+                                                        }
+                                                    },
+                                                    modifier = Modifier.size(36.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Remove,
+                                                        contentDescription = "تقليل الكمية",
+                                                        tint = MaterialTheme.colorScheme.primary,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                }
+
+                                                Text(
+                                                    text = item.quantity.toString(),
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 4.dp)
+                                                )
+
+                                                IconButton(
+                                                    onClick = {
+                                                        val idx = cartItems.indexOf(item)
+                                                        if (idx != -1) {
+                                                            cartItems[idx] = item.copy(quantity = item.quantity + 1)
+                                                        }
+                                                    },
+                                                    modifier = Modifier.size(36.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Add,
+                                                        contentDescription = "زيادة الكمية",
+                                                        tint = MaterialTheme.colorScheme.primary,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                }
+
+                                                Spacer(modifier = Modifier.width(4.dp))
+
+                                                IconButton(
+                                                    onClick = { cartItems.remove(item) },
+                                                    modifier = Modifier.size(36.dp)
                                                 ) {
                                                     Icon(
                                                         imageVector = Icons.Default.Close,
                                                         contentDescription = "إزالة الحجم",
-                                                        tint = MaterialTheme.colorScheme.error
+                                                        tint = MaterialTheme.colorScheme.error,
+                                                        modifier = Modifier.size(18.dp)
                                                     )
                                                 }
                                             }
@@ -495,34 +537,352 @@ fun CoffeeMenuScreen(viewModel: ProductViewModel, navController: NavController) 
                                     }
                                 }
                             }
-                        }
 
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 10.dp),
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
-                        )
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 8.dp),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
+                            )
 
-                        // Bottom summary details action Row
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.padding(vertical = 8.dp)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = "المجموع الكلي:",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.padding(vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        text = "المجموع الكلي:",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                    )
+                                    Text(
+                                        text = "$formattedTotal د.ع",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            // Portrait mode view (overlays cart at the bottom)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    // Search Bar
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        placeholder = { Text("البحث عن منتج...") },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true
+                    )
+
+                    // Categories Filter Row
+                    val dynamicCategories = remember(products, categoriesOrder) {
+                        val existing = products.map { it.category }.distinct()
+                        val sorted = categoriesOrder.filter { it in existing }
+                        val remaining = existing - categoriesOrder.toSet()
+                        listOf("الكل") + sorted + remaining
+                    }
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    ) {
+                        items(dynamicCategories) { category ->
+                            FilterChip(
+                                selected = selectedCategory == category,
+                                onClick = { selectedCategory = category },
+                                label = { Text(category) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
                                 )
-                                Text(
-                                    text = "$formattedTotal د.ع",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    // Calculate dynamic bottom padding so grid item elements aren't obscured by bottom bar card
+                    val bottomGridPadding = if (cartItems.isNotEmpty()) {
+                        if (isCartExpanded) 340.dp else 115.dp
+                    } else {
+                        16.dp
+                    }
+
+                    // Product Grid
+                    LazyVerticalStaggeredGrid(
+                        columns = StaggeredGridCells.Adaptive(minSize = 180.dp),
+                        contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = bottomGridPadding),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalItemSpacing = 16.dp,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        groupedProducts.forEach { (categoryName, productList) ->
+                            item(span = StaggeredGridItemSpan.FullLine) {
+                                CategoryHeader(title = categoryName)
+                            }
+                            items(productList, key = { it.id }) { product ->
+                                ProductCard(
+                                    product = product,
+                                    onAddToCart = { selectedProd, selectedSize ->
+                                        val existingIndex = cartItems.indexOfFirst { 
+                                            it.product.id == selectedProd.id && it.size.name == selectedSize.name 
+                                        }
+                                        if (existingIndex != -1) {
+                                            val existingItem = cartItems[existingIndex]
+                                            cartItems[existingIndex] = existingItem.copy(quantity = existingItem.quantity + 1)
+                                        } else {
+                                            cartItems.add(CartItem(product = selectedProd, size = selectedSize, quantity = 1))
+                                        }
+                                        // Auto-expand when a product is clicked/added so the user knows it's added!
+                                        isCartExpanded = true
+                                    }
                                 )
+                            }
+                        }
+                    }
+                }
+
+                // Collapsible/Expanding persistent bottom sheet overlay at the bottom
+                if (cartItems.isNotEmpty()) {
+                    val totalSum = cartItems.sumOf { it.size.price * it.quantity }
+                    val formattedTotal = java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(totalSum)
+
+                    Card(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 16.dp, bottomEnd = 16.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp)
+                        ) {
+                            // Slider / Drag Handle Indicator
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.CenterHorizontally)
+                                    .size(width = 40.dp, height = 4.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f))
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // Header Row
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.ShoppingCart,
+                                        contentDescription = "السلة",
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "تفاصيل السلة/الفاتورة (${cartItems.sumOf { it.quantity }})",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(onClick = { cartItems.clear() }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "تفريغ السلة",
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                    IconButton(onClick = { isCartExpanded = !isCartExpanded }) {
+                                        Icon(
+                                            imageVector = if (isCartExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
+                                            contentDescription = if (isCartExpanded) "تصغير" else "توسيع",
+                                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Expanded item lists
+                            AnimatedVisibility(visible = isCartExpanded) {
+                                Column {
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(vertical = 8.dp),
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
+                                    )
+                                    LazyColumn(
+                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .heightIn(max = 160.dp)
+                                    ) {
+                                        items(cartItems, key = { it.id }) { item ->
+                                            Card(
+                                                colors = CardDefaults.cardColors(
+                                                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                                                ),
+                                                shape = RoundedCornerShape(12.dp),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(10.dp),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Column(modifier = Modifier.weight(1f)) {
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                        ) {
+                                                            Text(
+                                                                text = item.product.name,
+                                                                style = MaterialTheme.typography.bodyMedium,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = MaterialTheme.colorScheme.onSurface
+                                                            )
+                                                            Text(
+                                                                text = "×${item.quantity}",
+                                                                style = MaterialTheme.typography.bodyMedium,
+                                                                fontWeight = FontWeight.ExtraBold,
+                                                                color = MaterialTheme.colorScheme.primary
+                                                            )
+                                                        }
+                                                        Text(
+                                                            text = if (item.size.name == "عادي") "" else "الحجم: ${item.size.name}",
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                        )
+                                                        val formattedItemPrice = java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(item.size.price * item.quantity)
+                                                        Text(
+                                                            text = "$formattedItemPrice د.ع",
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            color = MaterialTheme.colorScheme.primary,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                    }
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                                    ) {
+                                                        IconButton(
+                                                            onClick = {
+                                                                val idx = cartItems.indexOf(item)
+                                                                if (idx != -1) {
+                                                                    if (item.quantity > 1) {
+                                                                        cartItems[idx] = item.copy(quantity = item.quantity - 1)
+                                                                    } else {
+                                                                        cartItems.removeAt(idx)
+                                                                    }
+                                                                }
+                                                            },
+                                                            modifier = Modifier.size(36.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.Remove,
+                                                                contentDescription = "تقليل الكمية",
+                                                                tint = MaterialTheme.colorScheme.primary,
+                                                                modifier = Modifier.size(18.dp)
+                                                            )
+                                                        }
+
+                                                        Text(
+                                                            text = item.quantity.toString(),
+                                                            style = MaterialTheme.typography.bodyMedium,
+                                                            fontWeight = FontWeight.Bold,
+                                                            modifier = Modifier.padding(horizontal = 4.dp)
+                                                        )
+
+                                                        IconButton(
+                                                            onClick = {
+                                                                val idx = cartItems.indexOf(item)
+                                                                if (idx != -1) {
+                                                                    cartItems[idx] = item.copy(quantity = item.quantity + 1)
+                                                                }
+                                                            },
+                                                            modifier = Modifier.size(36.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.Add,
+                                                                contentDescription = "زيادة الكمية",
+                                                                tint = MaterialTheme.colorScheme.primary,
+                                                                modifier = Modifier.size(18.dp)
+                                                            )
+                                                        }
+
+                                                        Spacer(modifier = Modifier.width(4.dp))
+
+                                                        IconButton(
+                                                            onClick = { cartItems.remove(item) },
+                                                            modifier = Modifier.size(36.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.Close,
+                                                                contentDescription = "إزالة الحجم",
+                                                                tint = MaterialTheme.colorScheme.error,
+                                                                modifier = Modifier.size(18.dp)
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 10.dp),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
+                            )
+
+                            // Bottom summary details action Row
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.padding(vertical = 8.dp)
+                                ) {
+                                    Text(
+                                        text = "المجموع الكلي:",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                    )
+                                    Text(
+                                        text = "$formattedTotal د.ع",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
                     }

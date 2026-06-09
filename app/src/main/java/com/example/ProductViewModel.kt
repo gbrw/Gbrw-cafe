@@ -8,8 +8,11 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.mutableStateListOf
 
 class ProductViewModel(private val repository: ProductRepository) : ViewModel() {
+    val cartItems = mutableStateListOf<CartItem>()
+
     val uiState: StateFlow<List<Product>> = repository.allProducts
         .stateIn(
             scope = viewModelScope,

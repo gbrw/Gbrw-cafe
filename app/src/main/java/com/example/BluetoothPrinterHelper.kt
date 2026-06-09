@@ -130,8 +130,8 @@ object BluetoothPrinterHelper {
         currentY += 40f
         
         paint.typeface = tajawalRegular
-        paint.textSize = 20f
-        canvas.drawText("مرحبا بكم - قسم الباريستا", width / 2f, currentY, paint)
+        paint.textSize = 18f
+        canvas.drawText("أهلاً بك في ليش كافيه.. نورتنا بزيارتك 🤍", width / 2f, currentY, paint)
         currentY += 35f
         
         // Separator Line
@@ -237,41 +237,33 @@ object BluetoothPrinterHelper {
         
         // 7. Footer Greeting
         paint.typeface = tajawalRegular
-        paint.textSize = 18f
+        paint.textSize = 16f
         paint.textAlign = Paint.Align.CENTER
-        canvas.drawText("شكراً لخدمتكم وسرعتكم!", width / 2f, currentY, paint)
+        canvas.drawText("بالعافية عليكم.. نسعد دائماً بزيارتكم اللطيفة 🥰", width / 2f, currentY, paint)
         currentY += 25f
         paint.textSize = 14f
-        canvas.drawText("برمجة ليش كافيه - com.leshcafe.iq", width / 2f, currentY, paint)
+        canvas.drawText("برمجة غيث الراوي - انستغرام gb.rw", width / 2f, currentY, paint)
         
         return bitmap
     }
 
     /**
-     * Compresses the ARGB Bitmap into standard 1-bit monochrome ESC/POS graphic printable commands.
+     * Compresses a small portion (slice) of ARGB Bitmap into standard 1-bit monochrome ESC/POS graphic raster commands.
+     * Keeps chunk size compact (under 10KB) so small Bluetooth printer buffers never overflow.
      */
-    fun convertBitmapToEscPos(bitmap: Bitmap): ByteArray {
+    fun convertSingleSliceToEscPos(bitmap: Bitmap): ByteArray {
         val width = bitmap.width
         val height = bitmap.height
         val widthBytes = (width + 7) / 8 // Standard is 72 bytes for 576 width
         
         val output = ByteArrayOutputStream()
         
-        // Initialize Printer ESC @
-        output.write(0x1B)
-        output.write(0x40)
-        
-        // Centered formatting command
-        output.write(0x1B)
-        output.write(0x61)
-        output.write(0x01) // Center
-        
         // Header for standard GS v 0 raster print:
         // GS v 0 m xL xH yL yH d1...dk
         output.write(0x1D)
         output.write(0x76)
         output.write(0x30)
-        output.write(0x00) // Normal mode m=0 (no scaling)
+        output.write(0x00) // Normal mode
         
         // widthBytes
         output.write(widthBytes and 0xFF)
@@ -296,10 +288,9 @@ object BluetoothPrinterHelper {
                         val blue = pixel and 0xFF
                         val alpha = (pixel shr 24) and 0xFF
                         
-                        // Transparent background is treated as white.
-                        // Black luminance threshold.
+                        // Slightly brighter threshold for crisp text output (160 instead of 140)
                         val luminance = (0.299 * red + 0.587 * green + 0.114 * blue)
-                        if (alpha > 120 && luminance < 140) {
+                        if (alpha > 120 && luminance < 160) {
                             currentByte = currentByte or (1 shl (7 - bit))
                         }
                     }
@@ -307,6 +298,31 @@ object BluetoothPrinterHelper {
                 output.write(currentByte)
             }
         }
+        
+        return output.toByteArray()
+    }
+
+    /**
+     * Compresses the ARGB Bitmap into standard 1-bit monochrome ESC/POS graphic printable commands.
+     */
+    fun convertBitmapToEscPos(bitmap: Bitmap): ByteArray {
+        val width = bitmap.width
+        val height = bitmap.height
+        val widthBytes = (width + 7) / 8
+        
+        val output = ByteArrayOutputStream()
+        
+        // Initialize Printer ESC @
+        output.write(0x1B)
+        output.write(0x40)
+        
+        // Centered formatting command
+        output.write(0x1B)
+        output.write(0x61)
+        output.write(0x01) // Center
+        
+        val sliceBytes = convertSingleSliceToEscPos(bitmap)
+        output.write(sliceBytes)
         
         // Feed 5 lines and cut
         output.write(0x1B)
@@ -323,7 +339,8 @@ object BluetoothPrinterHelper {
     }
 
     /**
-     * Connects to the Bluetooth printer, sends receipt bytes, and closes the buffer inside an IO coroutine context.
+     * Connects to the Bluetooth printer, sends receipt bytes in horizontal slices, and closes the buffer.
+     * Slicing the bitmap prevents budget printer memory buffers from overloading (which causes the red light of death).
      */
     @SuppressLint("MissingPermission")
     suspend fun printCustomReceipt(
@@ -361,21 +378,67 @@ object BluetoothPrinterHelper {
                 timeStr = sdfTime.format(now)
             )
             
-            onStatus("جاري تحويل الرسومات للبث الحراري...")
-            val printBytes = convertBitmapToEscPos(bitmap)
+            val width = bitmap.width
+            val height = bitmap.height
             
-            onStatus("جاري إرسال البيانات والطباعة...")
-            outputStream.write(printBytes)
+            onStatus("جاري تجهيز وتقطيع المعاينة لتجنب امتلاء الذاكرة...")
+            
+            // Initialize printer session
+            outputStream.write(0x1B)
+            outputStream.write(0x40) // ESC @: Initialize printer
+            outputStream.write(0x1B)
+            outputStream.write(0x61)
+            outputStream.write(0x01) // Center align
             outputStream.flush()
             
-            // Give printer time to print before closing
-            kotlinx.coroutines.delay(1000)
+            // Slice height of 100-120 pixels is universally optimal for ultra-low buffers
+            val sliceHeight = 110
+            val numSlices = (height + sliceHeight - 1) / sliceHeight
             
-            onStatus("تمت الطباعة بنجاح!")
+            for (i in 0 until numSlices) {
+                val startY = i * sliceHeight
+                val currentSliceHeight = minOf(sliceHeight, height - startY)
+                
+                onStatus("جاري طباعة الجزء ${i + 1} من $numSlices...")
+                
+                // Crop the horizontal slice from original bitmap
+                val sliceBitmap = Bitmap.createBitmap(bitmap, 0, startY, width, currentSliceHeight)
+                val sliceBytes = convertSingleSliceToEscPos(sliceBitmap)
+                
+                outputStream.write(sliceBytes)
+                outputStream.flush()
+                
+                sliceBitmap.recycle()
+                
+                // Vital sleep of 80ms to let the hardware buffer catch up and heat the head smoothly
+                kotlinx.coroutines.delay(80)
+            }
+            
+            // Send final padding and paper cutting command
+            onStatus("جاري إنهاء وإخراج الورقة...")
+            val footerStream = ByteArrayOutputStream()
+            // Feed 5 lines for clean tear-off
+            footerStream.write(0x1B)
+            footerStream.write(0x64)
+            footerStream.write(4)
+            
+            // Paper Cut Command
+            footerStream.write(0x1D)
+            footerStream.write(0x56)
+            footerStream.write(0x41)
+            footerStream.write(0x00)
+            
+            outputStream.write(footerStream.toByteArray())
+            outputStream.flush()
+            
+            // Free the big bitmap resource
+            bitmap.recycle()
+            
+            onStatus("تم عملية الطباعة بنجاح تام! 🎉")
             true
         } catch (e: Exception) {
             e.printStackTrace()
-            onStatus("فشل الاتصال أو الطباعة: ${e.localizedMessage}")
+            onStatus("حدث خطأ أثناء الطباعة: ${e.localizedMessage}\n(تأكد من شحن الطابعة وإغلاق غطاء الورق جيداً)")
             false
         } finally {
             try {

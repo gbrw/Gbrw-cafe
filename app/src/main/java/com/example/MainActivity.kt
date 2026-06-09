@@ -505,10 +505,13 @@ fun CoffeeMenuScreen(viewModel: ProductViewModel, navController: NavController) 
                         // Bottom summary details action Row
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
+                            horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            ) {
                                 Text(
                                     text = "المجموع الكلي:",
                                     style = MaterialTheme.typography.bodySmall,
@@ -520,16 +523,6 @@ fun CoffeeMenuScreen(viewModel: ProductViewModel, navController: NavController) 
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                                     fontWeight = FontWeight.Bold
                                 )
-                            }
-                            Button(
-                                onClick = { showConfirmationDialog = true },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.primaryContainer
-                                ),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text("إتمام الطلب")
                             }
                         }
                     }

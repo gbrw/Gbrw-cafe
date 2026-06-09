@@ -2,8 +2,8 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- The user uploaded crisp PNG logo overlaying the center scaled slightly smaller for elegant adaptive margins -->
     <item
-        android:width="72dp"
-        android:height="72dp"
+        android:width="64dp"
+        android:height="64dp"
         android:drawable="@drawable/img_lesh_logo"
         android:gravity="center" />
 </layer-list>

@@ -30,6 +30,66 @@ object BluetoothPrinterHelper {
     private val SPP_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
 
     /**
+     * Draws a high-fidelity vector Location Pin.
+     */
+    fun drawLocationPin(canvas: Canvas, x: Float, y: Float, size: Float, paint: Paint) {
+        val originalColor = paint.color
+        val originalStyle = paint.style
+        val originalStrokeWidth = paint.strokeWidth
+
+        paint.style = Paint.Style.FILL
+        paint.color = Color.BLACK
+        
+        // Pin head circle
+        canvas.drawCircle(x, y - size * 0.5f, size * 0.35f, paint)
+        
+        // Pin pointer triangle
+        val path = android.graphics.Path().apply {
+            moveTo(x - size * 0.3f, y - size * 0.4f)
+            lineTo(x, y + size * 0.35f)
+            lineTo(x + size * 0.3f, y - size * 0.4f)
+            close()
+        }
+        canvas.drawPath(path, paint)
+        
+        // Inner negative space (white eye of pin)
+        paint.color = Color.WHITE
+        canvas.drawCircle(x, y - size * 0.5f, size * 0.12f, paint)
+        
+        paint.color = originalColor
+        paint.style = originalStyle
+        paint.strokeWidth = originalStrokeWidth
+    }
+
+    /**
+     * Draws a high-fidelity Instagram square camera icon.
+     */
+    fun drawInstagramLogo(canvas: Canvas, x: Float, y: Float, size: Float, paint: Paint) {
+        val originalColor = paint.color
+        val originalStyle = paint.style
+        val originalStrokeWidth = paint.strokeWidth
+
+        paint.color = Color.BLACK
+        
+        // Outer rounded rectangle border
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = 2.5f
+        val rect = android.graphics.RectF(x - size * 0.4f, y - size * 0.4f, x + size * 0.4f, y + size * 0.4f)
+        canvas.drawRoundRect(rect, size * 0.12f, size * 0.12f, paint)
+        
+        // Lens circle inside
+        canvas.drawCircle(x, y, size * 0.17f, paint)
+        
+        // Small flash indicator dot
+        paint.style = Paint.Style.FILL
+        canvas.drawCircle(x + size * 0.2f, y - size * 0.2f, size * 0.045f, paint)
+        
+        paint.color = originalColor
+        paint.style = originalStyle
+        paint.strokeWidth = originalStrokeWidth
+    }
+
+    /**
      * Checks if all necessary Bluetooth permissions are granted.
      */
     fun hasBluetoothPermissions(context: Context): Boolean {
@@ -78,7 +138,7 @@ object BluetoothPrinterHelper {
         val metaHeight = 110
         val tableHeaderHeight = 50
         val summaryHeight = 120
-        val footerHeight = 140
+        val footerHeight = 300
         
         val dynamicHeight = headerHeight + metaHeight + tableHeaderHeight + (items.size * itemHeight) + summaryHeight + footerHeight + 100
         
@@ -240,8 +300,51 @@ object BluetoothPrinterHelper {
         paint.textSize = 16f
         paint.textAlign = Paint.Align.CENTER
         canvas.drawText("بالعافية عليكم.. نسعد دائماً بزيارتكم اللطيفة 🥰", width / 2f, currentY, paint)
-        currentY += 25f
-        paint.textSize = 14f
+        currentY += 45f
+        
+        // Draw Location Address Info
+        paint.style = Paint.Style.FILL
+        paint.textSize = 15f
+        paint.typeface = tajawalBold
+        val addressText = "النجف الكوفة حي كندة قرب مركز كندة الصحي"
+        val addressWidth = paint.measureText(addressText)
+        val spaceBetweenAddress = 26f // icon size + gap info
+        val startAddressX = (width - (addressWidth + spaceBetweenAddress)) / 2f
+        
+        drawLocationPin(canvas, startAddressX + 10f, currentY - 5f, 20f, paint)
+        
+        paint.style = Paint.Style.FILL
+        paint.textAlign = Paint.Align.LEFT
+        canvas.drawText(addressText, startAddressX + spaceBetweenAddress, currentY, paint)
+        
+        currentY += 38f
+        
+        // Draw Instagram Address Info
+        val igText = "cafe__lesh"
+        paint.style = Paint.Style.FILL
+        val igWidth = paint.measureText(igText)
+        val spaceBetweenIg = 26f
+        val startIgX = (width - (igWidth + spaceBetweenIg)) / 2f
+        
+        drawInstagramLogo(canvas, startIgX + 10f, currentY - 5f, 20f, paint)
+        
+        paint.style = Paint.Style.FILL
+        paint.textAlign = Paint.Align.LEFT
+        canvas.drawText(igText, startIgX + spaceBetweenIg, currentY, paint)
+        
+        currentY += 50f
+        
+        // Divider line prior to developer rights
+        paint.strokeWidth = 1f
+        paint.style = Paint.Style.STROKE
+        canvas.drawLine(100f, currentY, width - 100f, currentY, paint)
+        currentY += 35f
+        
+        // Developers rights
+        paint.typeface = tajawalRegular
+        paint.style = Paint.Style.FILL
+        paint.textSize = 13f
+        paint.textAlign = Paint.Align.CENTER
         canvas.drawText("برمجة غيث الراوي - انستغرام gb.rw", width / 2f, currentY, paint)
         
         return bitmap

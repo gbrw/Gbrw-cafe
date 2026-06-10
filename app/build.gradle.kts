@@ -28,9 +28,9 @@ android {
     create("release") {
       val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
       storeFile = file(keystorePath)
-      storePassword = System.getenv("STORE_PASSWORD")
+      storePassword = System.getenv("STORE_PASSWORD") ?: "leshcafe123"
       keyAlias = "upload"
-      keyPassword = System.getenv("KEY_PASSWORD")
+      keyPassword = System.getenv("KEY_PASSWORD") ?: "leshcafe123"
     }
     create("debugConfig") {
       storeFile = file("${rootDir}/debug.keystore")
@@ -169,7 +169,40 @@ tasks.register("downloadFonts") {
     }
 }
 
+val keystorePathStr = project.rootDir.absolutePath + "/my-upload-key.jks"
+
+tasks.register("generateReleaseKeystore") {
+    val path = keystorePathStr
+    doLast {
+        val keystoreFile = File(path)
+        if (!keystoreFile.exists()) {
+            println("Generating release keystore at: ${keystoreFile.absolutePath}")
+            try {
+                val process = ProcessBuilder(
+                    "keytool", "-genkeypair", "-v",
+                    "-keystore", keystoreFile.absolutePath,
+                    "-keyalg", "RSA", "-keysize", "2048", "-validity", "10000",
+                    "-alias", "upload",
+                    "-storepass", "leshcafe123",
+                    "-keypass", "leshcafe123",
+                    "-dname", "CN=Lesh Cafe, OU=Android, O=Lesh Cafe, L=Baghdad, S=Baghdad, C=IQ"
+                ).inheritIO().start()
+                val exitCode = process.waitFor()
+                if (exitCode == 0) {
+                    println("Release keystore generated successfully.")
+                } else {
+                    println("Failed to generate release keystore. Exit code: $exitCode")
+                }
+            } catch (e: Exception) {
+                println("Failed to generate release keystore via keytool ProcessBuilder: ${e.message}")
+            }
+        } else {
+            println("Release keystore already exists.")
+        }
+    }
+}
+
 tasks.matching { it.name.startsWith("preBuild") }.all {
-    dependsOn("downloadFonts")
+    dependsOn("downloadFonts", "generateReleaseKeystore")
 }
 

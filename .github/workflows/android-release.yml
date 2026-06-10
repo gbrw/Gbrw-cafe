@@ -1,39 +1,48 @@
-name: Android Release Build
+name: Android Release
 
 on:
-  push:
-    branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
-  workflow_dispatch:
+push:
+branches:
+- main
+workflow_dispatch:
 
 jobs:
-  build:
-    name: Build Release APK
-    runs-on: ubuntu-latest
+build:
+runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+```
+env:
+  KEYSTORE_PATH: my-upload-key.jks
+  STORE_PASSWORD: leshcafe123
+  KEY_PASSWORD: leshcafe123
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
+steps:
+  - name: Checkout
+    uses: actions/checkout@v4
 
-      - name: Setup Gradle
-  uses: gradle/actions/setup-gradle@v4
-  with:
-    validate-wrappers: false
+  - name: Setup Java
+    uses: actions/setup-java@v4
+    with:
+      distribution: temurin
+      java-version: 17
 
-      - name: Make Gradlew Executable
-        run: chmod +x gradlew
+  - name: Setup Gradle
+    uses: gradle/actions/setup-gradle@v4
+    with:
+      validate-wrappers: false
 
-      - name: Build Release APK
-        run: ./gradlew assembleRelease
+  - name: Grant execute permission
+    run: chmod +x ./gradlew
 
-      - name: Upload APK Artifact
+  - name: Build Release APK
+    run: ./gradlew assembleRelease
+
+  - name: Upload APK
+    uses: actions/upload-artifact@v4
+    with:
+      name: release-apk
+      path: app/build/outputs/apk/release/*.apk
+```
         uses: actions/upload-artifact@v4
         with:
           name: app-release-apk

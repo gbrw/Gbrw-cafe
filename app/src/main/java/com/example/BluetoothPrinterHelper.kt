@@ -450,6 +450,7 @@ object BluetoothPrinterHelper {
         context: Context,
         device: BluetoothDevice,
         items: List<CartItem>,
+        receiptNo: String,
         onStatus: (String) -> Unit
     ): Boolean = withContext(Dispatchers.IO) {
         
@@ -469,8 +470,6 @@ object BluetoothPrinterHelper {
             // Generate metadata
             val sdfDate = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault())
             val sdfTime = SimpleDateFormat("hh:mm a", Locale.getDefault())
-            val randNum = (1000..9999).random()
-            val receiptNo = "LSH-$randNum"
             val now = Date()
             
             val bitmap = generate80mmReceiptBitmap(
@@ -562,6 +561,7 @@ object BluetoothPrinterHelper {
         ipAddress: String,
         port: Int = 9100,
         items: List<CartItem>,
+        receiptNo: String,
         onStatus: (String) -> Unit
     ): Boolean = withContext(Dispatchers.IO) {
         var socket: java.net.Socket? = null
@@ -578,8 +578,6 @@ object BluetoothPrinterHelper {
             // Generate metadata
             val sdfDate = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault())
             val sdfTime = SimpleDateFormat("hh:mm a", Locale.getDefault())
-            val randNum = (1000..9999).random()
-            val receiptNo = "LSH-$randNum"
             val now = Date()
             
             val bitmap = generate80mmReceiptBitmap(

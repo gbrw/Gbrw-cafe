@@ -1065,6 +1065,9 @@ fun BluetoothPrintDialog(
     var selectedDeviceAddress by remember { mutableStateOf(sharedPrefs.getString("selected_printer_mac", "") ?: "") }
     var selectedDeviceName by remember { mutableStateOf(sharedPrefs.getString("selected_printer_name", "") ?: "") }
     
+    val currentSeq = remember { sharedPrefs.getInt("invoice_sequence", 1) }
+    val receiptNo = remember(currentSeq) { String.format(Locale.US, "%05d", currentSeq) }
+
     var statusMessage by remember { mutableStateOf("") }
     var hasPermission by remember { mutableStateOf(BluetoothPrinterHelper.hasBluetoothPermissions(context)) }
     var devices by remember { mutableStateOf<List<BluetoothDevice>>(emptyList()) }
@@ -1102,13 +1105,11 @@ fun BluetoothPrintDialog(
         }
     }
     
-    LaunchedEffect(cartItems) {
+    LaunchedEffect(cartItems, receiptNo) {
         // Generate high-fidelity visual receipt preview
         try {
             val sdfDate = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault())
             val sdfTime = SimpleDateFormat("hh:mm a", Locale.getDefault())
-            val randNum = (1000..9999).random()
-            val receiptNo = "LSH-$randNum"
             val now = Date()
             
             previewBitmap = BluetoothPrinterHelper.generate80mmReceiptBitmap(
@@ -1236,7 +1237,8 @@ fun BluetoothPrintDialog(
                                             BluetoothPrinterHelper.printCustomReceipt(
                                                 context,
                                                 device,
-                                                cartItems
+                                                cartItems,
+                                                receiptNo
                                             ) { status ->
                                                 statusMessage = status
                                             }
@@ -1251,7 +1253,8 @@ fun BluetoothPrintDialog(
                                                     BluetoothPrinterHelper.printCustomReceipt(
                                                         context,
                                                         remoteDevice,
-                                                        cartItems
+                                                        cartItems,
+                                                        receiptNo
                                                     ) { status ->
                                                         statusMessage = status
                                                     }
@@ -1370,7 +1373,8 @@ fun BluetoothPrintDialog(
                                             BluetoothPrinterHelper.printCustomReceipt(
                                                 context,
                                                 device,
-                                                cartItems
+                                                cartItems,
+                                                receiptNo
                                             ) { status ->
                                                 statusMessage = status
                                             }
@@ -1446,6 +1450,8 @@ fun BluetoothPrintDialog(
                 
                 Button(
                     onClick = {
+                        // Persist incremented invoice sequence for the next order
+                        sharedPrefs.edit().putInt("invoice_sequence", currentSeq + 1).apply()
                         onOrderCompleted()
                     },
                     colors = ButtonDefaults.buttonColors(
